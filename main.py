@@ -82,7 +82,7 @@ body {
 .container { max-width: 640px; margin: 0 auto; opacity: 0; animation: fadeIn 0.6s ease forwards; }
 @keyframes fadeIn { to { opacity: 1; } }
 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.title { font-family: 'Courier New', monospace; font-style: italic; font-size: 28px; color: #E67E22; font-weight: bold; }
+.title { font-family: 'Courier New', monospace; font-size: 28px; color: #E67E22; font-weight: 700; }
 .health {
   display: flex;
   align-items: center;
