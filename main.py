@@ -248,90 +248,64 @@ const fmtPct = (num) => {
 };
 
 async function fetchData() {
-  const symbol = 'AAPL';
-
   // Health check
   try {
     const startHealth = Date.now();
-    const health = await fetch('/health').then(r => r.json());
+    await fetch('/health');
     const latency = Date.now() - startHealth;
     document.getElementById('health-status').textContent = 'online \\u00B7 ' + latency + 'ms';
   } catch (e) {
     document.getElementById('health-status').textContent = 'offline';
   }
 
-  // Profile
+  // All homepage data in one server-side call
   try {
-    const profile = await fetch('/profile?symbol=' + symbol).then(r => r.json());
-    document.getElementById('hero-symbol').textContent = profile.symbol || '--';
-    document.getElementById('hero-name').textContent = profile.name || '--';
-    document.getElementById('hero-sector').textContent = (profile.sector || '') + (profile.industry ? ' \\u00B7 ' + profile.industry : '');
-    document.getElementById('hero-price').textContent = profile.price ? fmt(profile.price) : '$--';
-    document.getElementById('hero-cap').textContent = 'Market Cap: ' + (profile.market_cap ? fmt(profile.market_cap) : '--');
-    document.getElementById('beta').textContent = profile.beta ? fmtNum(profile.beta, 2) : '--';
-  } catch (e) {
-    console.error('Profile error:', e);
-  }
+    const dash = await fetch('/dashboard').then(r => r.json());
 
-  // Ratios
-  try {
-    const ratiosData = await fetch('/ratios?symbol=' + symbol + '&limit=1').then(r => r.json());
-    if (ratiosData.ratios && ratiosData.ratios[0]) {
-      const r = ratiosData.ratios[0];
+    // Profile
+    const p = dash.profile;
+    if (p) {
+      document.getElementById('hero-symbol').textContent = p.symbol || '--';
+      document.getElementById('hero-name').textContent = p.name || '--';
+      document.getElementById('hero-sector').textContent = (p.sector || '') + (p.industry ? ' \\u00B7 ' + p.industry : '');
+      document.getElementById('hero-price').textContent = p.price ? fmt(p.price) : '$--';
+      document.getElementById('hero-cap').textContent = 'Market Cap: ' + (p.market_cap ? fmt(p.market_cap) : '--');
+      document.getElementById('beta').textContent = p.beta ? fmtNum(p.beta, 2) : '--';
+    }
+
+    // Ratios
+    const r = dash.ratios;
+    if (r) {
       document.getElementById('pe').textContent = r.pe_ratio ? fmtNum(r.pe_ratio, 1) : '--';
       document.getElementById('div-yield').textContent = r.dividend_yield ? fmtPct(r.dividend_yield) : '--';
       document.getElementById('roe').textContent = r.roe ? fmtPct(r.roe) : '--';
     }
-  } catch (e) {
-    console.error('Ratios error:', e);
-  }
 
-  // Metrics
-  try {
-    const metricsData = await fetch('/metrics?symbol=' + symbol + '&limit=1').then(r => r.json());
-    if (metricsData.metrics && metricsData.metrics[0]) {
-      const m = metricsData.metrics[0];
-      document.getElementById('revenue').textContent = m.revenue_per_share ? fmt(m.revenue_per_share * 15e9) : '--';
+    // Income
+    const inc = dash.income;
+    if (inc) {
+      document.getElementById('eps').textContent = inc.eps ? '$' + fmtNum(inc.eps, 2) : '--';
+      if (inc.revenue) document.getElementById('revenue').textContent = fmt(inc.revenue);
     }
-  } catch (e) {
-    console.error('Metrics error:', e);
-  }
 
-  // Income for EPS
-  try {
-    const incomeData = await fetch('/income?symbol=' + symbol + '&limit=1').then(r => r.json());
-    if (incomeData.statements && incomeData.statements[0]) {
-      const s = incomeData.statements[0];
-      document.getElementById('eps').textContent = s.eps ? '$' + fmtNum(s.eps, 2) : '--';
-      if (s.revenue) {
-        document.getElementById('revenue').textContent = fmt(s.revenue);
+    // DCF
+    const dcf = dash.dcf;
+    if (dcf) {
+      document.getElementById('dcf-intrinsic').textContent = dcf.dcf ? fmt(dcf.dcf) : '$--';
+      document.getElementById('dcf-current').textContent = dcf.stock_price ? fmt(dcf.stock_price) : '$--';
+      if (dcf.dcf && dcf.stock_price) {
+        const verdict = document.getElementById('dcf-verdict');
+        if (dcf.dcf > dcf.stock_price) {
+          verdict.textContent = '\\u2191 Buy';
+          verdict.className = 'dcf-verdict undervalued';
+        } else {
+          verdict.textContent = '\\u2193 Sell';
+          verdict.className = 'dcf-verdict overvalued';
+        }
       }
     }
   } catch (e) {
-    console.error('Income error:', e);
-  }
-
-  // DCF
-  try {
-    const dcf = await fetch('/dcf?symbol=' + symbol).then(r => r.json());
-    const intrinsic = dcf.dcf;
-    const current = dcf.stock_price;
-
-    document.getElementById('dcf-intrinsic').textContent = intrinsic ? fmt(intrinsic) : '$--';
-    document.getElementById('dcf-current').textContent = current ? fmt(current) : '$--';
-
-    if (intrinsic && current) {
-      const verdict = document.getElementById('dcf-verdict');
-      if (intrinsic > current) {
-        verdict.textContent = '\\u2191 Buy';
-        verdict.className = 'dcf-verdict undervalued';
-      } else {
-        verdict.textContent = '\\u2193 Sell';
-        verdict.className = 'dcf-verdict overvalued';
-      }
-    }
-  } catch (e) {
-    console.error('DCF error:', e);
+    console.error('Dashboard error:', e);
   }
 }
 
@@ -379,6 +353,74 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "healthy", "timestamp": _ts()}
+
+
+@app.get("/dashboard")
+async def dashboard():
+    """
+    Single endpoint for homepage data: AAPL profile, ratios, income, and DCF.
+    Sequential upstream calls to respect FMP rate limits (250/day).
+    """
+    result = {"profile": None, "ratios": None, "income": None, "dcf": None}
+    key = _get_key()
+
+    async def _fetch(path, params=None):
+        if params is None:
+            params = {}
+        params["apikey"] = key
+        url = f"{BASE_URL}{path}"
+        try:
+            resp = await http_client.get(url, params=params)
+            if resp.status_code == 200:
+                return resp.json()
+        except Exception:
+            pass
+        return None
+
+    # 1) Profile
+    data = await _fetch("/profile", {"symbol": "AAPL"})
+    if data and isinstance(data, list) and data:
+        p = data[0]
+        result["profile"] = {
+            "symbol": p.get("symbol"),
+            "name": p.get("companyName"),
+            "sector": p.get("sector"),
+            "industry": p.get("industry"),
+            "market_cap": p.get("marketCap"),
+            "price": p.get("price"),
+            "beta": p.get("beta"),
+        }
+
+    # 2) Ratios (last period)
+    data = await _fetch("/ratios", {"symbol": "AAPL", "period": "annual", "limit": "1"})
+    if data and isinstance(data, list) and data:
+        r = data[0]
+        result["ratios"] = {
+            "pe_ratio": r.get("priceEarningsRatio"),
+            "dividend_yield": r.get("dividendYield"),
+            "roe": r.get("returnOnEquity"),
+        }
+
+    # 3) Income (latest for EPS + revenue)
+    data = await _fetch("/income-statement", {"symbol": "AAPL", "period": "annual", "limit": "1"})
+    if data and isinstance(data, list) and data:
+        s = data[0]
+        result["income"] = {
+            "eps": s.get("eps"),
+            "revenue": s.get("revenue"),
+        }
+
+    # 4) DCF
+    data = await _fetch("/discounted-cash-flow", {"symbol": "AAPL"})
+    if data and isinstance(data, list) and data:
+        d = data[0]
+        result["dcf"] = {
+            "dcf": d.get("dcf"),
+            "stock_price": d.get("Stock Price"),
+        }
+
+    result["timestamp"] = _ts()
+    return result
 
 
 @app.get("/profile")
