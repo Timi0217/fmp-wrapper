@@ -9,7 +9,7 @@ import httpx
 
 
 FMP_API_KEY = os.environ.get("FMP_API_KEY", "")
-BASE_URL = "https://financialmodelingprep.com/api/v3"
+BASE_URL = "https://financialmodelingprep.com/stable"
 
 http_client: Optional[httpx.AsyncClient] = None
 
@@ -384,7 +384,7 @@ async def health():
 @app.get("/profile")
 async def get_profile(symbol: str = Query(..., description="Stock symbol (e.g., AAPL)")):
     """Get company profile."""
-    data = await _fmp_request(f"/profile/{symbol.upper()}")
+    data = await _fmp_request("/profile", {"symbol": symbol.upper()})
     if not data:
         raise HTTPException(status_code=404, detail=f"No profile for {symbol}")
 
@@ -392,13 +392,13 @@ async def get_profile(symbol: str = Query(..., description="Stock symbol (e.g., 
     return {
         "symbol": p.get("symbol"),
         "name": p.get("companyName"),
-        "exchange": p.get("exchangeShortName"),
+        "exchange": p.get("exchange"),
         "sector": p.get("sector"),
         "industry": p.get("industry"),
-        "market_cap": p.get("mktCap"),
+        "market_cap": p.get("marketCap"),
         "price": p.get("price"),
         "beta": p.get("beta"),
-        "vol_avg": p.get("volAvg"),
+        "vol_avg": p.get("averageVolume"),
         "description": p.get("description"),
         "ceo": p.get("ceo"),
         "country": p.get("country"),
@@ -417,7 +417,7 @@ async def get_income(
     limit: int = Query(4, description="Number of periods", ge=1, le=40),
 ):
     """Get income statement."""
-    data = await _fmp_request(f"/income-statement/{symbol.upper()}", {"period": period, "limit": limit})
+    data = await _fmp_request("/income-statement", {"symbol": symbol.upper(), "period": period, "limit": limit})
     if not data:
         raise HTTPException(status_code=404, detail=f"No income data for {symbol}")
 
@@ -450,7 +450,7 @@ async def get_balance(
     limit: int = Query(4, ge=1, le=40),
 ):
     """Get balance sheet."""
-    data = await _fmp_request(f"/balance-sheet-statement/{symbol.upper()}", {"period": period, "limit": limit})
+    data = await _fmp_request("/balance-sheet-statement", {"symbol": symbol.upper(), "period": period, "limit": limit})
     if not data:
         raise HTTPException(status_code=404, detail=f"No balance sheet for {symbol}")
 
@@ -481,7 +481,7 @@ async def get_cashflow(
     limit: int = Query(4, ge=1, le=40),
 ):
     """Get cash flow statement."""
-    data = await _fmp_request(f"/cash-flow-statement/{symbol.upper()}", {"period": period, "limit": limit})
+    data = await _fmp_request("/cash-flow-statement", {"symbol": symbol.upper(), "period": period, "limit": limit})
     if not data:
         raise HTTPException(status_code=404, detail=f"No cash flow data for {symbol}")
 
@@ -510,7 +510,7 @@ async def get_ratios(
     limit: int = Query(4, ge=1, le=10),
 ):
     """Get financial ratios."""
-    data = await _fmp_request(f"/ratios/{symbol.upper()}", {"period": period, "limit": limit})
+    data = await _fmp_request("/ratios", {"symbol": symbol.upper(), "period": period, "limit": limit})
     if not data:
         raise HTTPException(status_code=404, detail=f"No ratios for {symbol}")
 
@@ -542,7 +542,7 @@ async def get_ratios(
 @app.get("/dcf")
 async def get_dcf(symbol: str = Query(..., description="Stock symbol")):
     """Get discounted cash flow valuation."""
-    data = await _fmp_request(f"/discounted-cash-flow/{symbol.upper()}")
+    data = await _fmp_request("/discounted-cash-flow", {"symbol": symbol.upper()})
     if not data:
         raise HTTPException(status_code=404, detail=f"No DCF data for {symbol}")
 
@@ -563,7 +563,7 @@ async def get_metrics(
     limit: int = Query(4, ge=1, le=10),
 ):
     """Get key financial metrics."""
-    data = await _fmp_request(f"/key-metrics/{symbol.upper()}", {"period": period, "limit": limit})
+    data = await _fmp_request("/key-metrics", {"symbol": symbol.upper(), "period": period, "limit": limit})
     if not data:
         raise HTTPException(status_code=404, detail=f"No metrics for {symbol}")
 
@@ -592,7 +592,7 @@ async def get_metrics(
 @app.get("/search")
 async def search_companies(query: str = Query(..., description="Search query")):
     """Search for companies by name or ticker."""
-    data = await _fmp_request("/search", {"query": query, "limit": 10})
+    data = await _fmp_request("/search-name", {"query": query, "limit": 10})
     if not data:
         return {"query": query, "results": [], "timestamp": _ts()}
 
@@ -601,7 +601,7 @@ async def search_companies(query: str = Query(..., description="Search query")):
         results.append({
             "symbol": item.get("symbol"),
             "name": item.get("name"),
-            "exchange": item.get("exchangeShortName"),
+            "exchange": item.get("exchange"),
             "currency": item.get("currency"),
         })
 
