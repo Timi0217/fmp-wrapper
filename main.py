@@ -213,14 +213,14 @@ body {
   <div class="input-section">
     <form id="lookup-form" class="input-row">
       <input type="text" class="input-field" id="symbol-input" placeholder="AAPL" maxlength="10">
-      <button type="submit" class="btn">\\u2192 profile</button>
+      <button type="submit" class="btn">&rarr; profile</button>
     </form>
     <div class="suggestions">
       Try:
-      <span onclick="trySymbol('TSLA')">TSLA</span> \\u00B7
-      <span onclick="trySymbol('MSFT')">MSFT</span> \\u00B7
-      <span onclick="trySymbol('GOOGL')">GOOGL</span> \\u00B7
-      <span onclick="trySymbol('NVDA')">NVDA</span> \\u00B7
+      <span onclick="trySymbol('TSLA')">TSLA</span> &middot;
+      <span onclick="trySymbol('MSFT')">MSFT</span> &middot;
+      <span onclick="trySymbol('GOOGL')">GOOGL</span> &middot;
+      <span onclick="trySymbol('NVDA')">NVDA</span> &middot;
       <span onclick="trySymbol('META')">META</span>
     </div>
     <div class="result" id="result"></div>
