@@ -253,7 +253,7 @@ async function fetchData() {
     const startHealth = Date.now();
     await fetch('/health');
     const latency = Date.now() - startHealth;
-    document.getElementById('health-status').textContent = 'online \\u00B7 ' + latency + 'ms';
+    document.getElementById('health-status').textContent = 'online \u00B7 ' + latency + 'ms';
   } catch (e) {
     document.getElementById('health-status').textContent = 'offline';
   }
@@ -267,7 +267,7 @@ async function fetchData() {
     if (p) {
       document.getElementById('hero-symbol').textContent = p.symbol || '--';
       document.getElementById('hero-name').textContent = p.name || '--';
-      document.getElementById('hero-sector').textContent = (p.sector || '') + (p.industry ? ' \\u00B7 ' + p.industry : '');
+      document.getElementById('hero-sector').textContent = (p.sector || '') + (p.industry ? ' \u00B7 ' + p.industry : '');
       document.getElementById('hero-price').textContent = p.price ? fmt(p.price) : '$--';
       document.getElementById('hero-cap').textContent = 'Market Cap: ' + (p.market_cap ? fmt(p.market_cap) : '--');
       document.getElementById('beta').textContent = p.beta ? fmtNum(p.beta, 2) : '--';
@@ -296,10 +296,10 @@ async function fetchData() {
       if (dcf.dcf && dcf.stock_price) {
         const verdict = document.getElementById('dcf-verdict');
         if (dcf.dcf > dcf.stock_price) {
-          verdict.textContent = '\\u2191 Buy';
+          verdict.textContent = '\u2191 Buy';
           verdict.className = 'dcf-verdict undervalued';
         } else {
-          verdict.textContent = '\\u2193 Sell';
+          verdict.textContent = '\u2193 Sell';
           verdict.className = 'dcf-verdict overvalued';
         }
       }
